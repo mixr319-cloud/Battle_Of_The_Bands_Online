@@ -23,9 +23,9 @@ from sqlalchemy import select
 
 router = APIRouter(prefix="/auth", tags=["oauth"])
 
-DISCORD_CLIENT_ID = os.getenv("1516293816313712700", "")
-DISCORD_CLIENT_SECRET = os.getenv("suEv29hAQzAiuNPUcTCXbAEVH47kalnG", "")
-DISCORD_REDIRECT_URI = os.getenv("https://special-couscous-4qjvgqjx9xp6fqrgrg-8000.app.github.dev/auth/discord/callback", "http://localhost:8000/auth/discord/callback")
+DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID", "")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
+DISCORD_REDIRECT_URI  = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/discord/callback")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")

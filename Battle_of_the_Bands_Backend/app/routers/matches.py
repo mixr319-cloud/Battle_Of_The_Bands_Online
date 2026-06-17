@@ -5,7 +5,7 @@ from app.database import get_db
 from app.services.matchmaking import (
     get_or_create_room, get_room, manager,
     start_match, advance_turn, handle_vote_complete,
-    SOLO_TIMEOUT_SECS
+    SOLO_TIMEOUT_SECS, get_queue_counts
 )
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -21,6 +21,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
       { type: "recording_done", matchId, recordingId?, waveform, playerName, teamId }
       { type: "vote_complete", matchId, winner, votesA, votesB, mvpAId, mvpBId }
       { type: "bpm_change", matchId, bpm }
+      { type: "get_queue_counts" }
 
     Messages the SERVER sends:
       { type: "queued", matchId, playersJoined, playersNeeded }
@@ -29,6 +30,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
       { type: "voting_start", ... }
       { type: "results", winner, votes, mvp, recordings }
       { type: "player_disconnected", userId }
+      { type: "queue_counts", counts }
       { type: "error", message }
     """
     await websocket.accept()
@@ -38,8 +40,16 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
         async for raw in websocket.iter_json():
             msg_type = raw.get("type")
 
+            # ── GET QUEUE COUNTS ────────────────────────────────────
+            if msg_type == "get_queue_counts":
+                counts = get_queue_counts()
+                await websocket.send_json({
+                    "type": "queue_counts",
+                    "counts": counts,
+                })
+
             # ── JOIN QUEUE ──────────────────────────────────────────
-            if msg_type == "join_queue":
+            elif msg_type == "join_queue":
                 team_size = int(raw.get("teamSize", 4))
                 genre = raw.get("genre", "Hip-Hop")
                 display_name = raw.get("displayName", "Player")

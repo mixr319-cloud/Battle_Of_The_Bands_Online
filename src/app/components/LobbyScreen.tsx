@@ -9,6 +9,8 @@ export type Genre = "Rock" | "Hip-Hop" | "Pop" | "R&B" | "Freestyle";
 interface Props {
   profile: Profile;
   onStart: (size: TeamSize, genre: Genre) => void;
+  send: (msg: any) => void;
+  onMessage: (handler: (msg: any) => void) => () => void;
 }
 
 const GENRES: { id: Genre; emoji: string; color: string }[] = [
@@ -19,32 +21,45 @@ const GENRES: { id: Genre; emoji: string; color: string }[] = [
   { id: "Freestyle", emoji: "🌀", color: "#22d3ee" },
 ];
 
-// Simulated player counts that fluctuate a bit to feel alive
-function useGenreCounts() {
-  const base: Record<Genre, number> = { Rock: 14, "Hip-Hop": 22, Pop: 18, "R&B": 11, Freestyle: 8 };
-  const [counts, setCounts] = useState(base);
+// Hook to fetch real queue counts from server
+function useGenreCounts(send: (msg: any) => void, onMessage: (handler: (msg: any) => void) => () => void) {
+  const [counts, setCounts] = useState<Record<Genre, number>>({
+    Rock: 0,
+    "Hip-Hop": 0,
+    Pop: 0,
+    "R&B": 0,
+    Freestyle: 0,
+  });
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setCounts(prev => {
-        const next = { ...prev };
-        (Object.keys(next) as Genre[]).forEach(g => {
-          const delta = Math.floor(Math.random() * 3) - 1; // -1, 0, or +1
-          next[g] = Math.max(3, next[g] + delta);
-        });
-        return next;
-      });
+    // Request queue counts from server immediately
+    send({ type: "get_queue_counts" });
+
+    // Listen for queue count updates
+    const unsub = onMessage((msg) => {
+      if (msg.type === "queue_counts") {
+        setCounts(msg.counts as Record<Genre, number>);
+      }
+    });
+
+    // Poll for updated counts every 3 seconds
+    const interval = setInterval(() => {
+      send({ type: "get_queue_counts" });
     }, 3000);
-    return () => clearInterval(id);
-  }, []);
+
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [send, onMessage]);
 
   return counts;
 }
 
-export function LobbyScreen({ profile, onStart }: Props) {
+export function LobbyScreen({ profile, onStart, send, onMessage }: Props) {
   const [selectedSize, setSelectedSize] = useState<TeamSize>(4);
   const [selectedGenre, setSelectedGenre] = useState<Genre>("Hip-Hop");
-  const counts = useGenreCounts();
+  const counts = useGenreCounts(send, onMessage);
   const rank = getRank(profile.level);
   const xpPct = (profile.xp / profile.xpToNext) * 100;
 

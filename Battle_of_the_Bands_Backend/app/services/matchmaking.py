@@ -195,6 +195,25 @@ def get_room(match_id: str) -> Optional[MatchRoom]:
     return _active_rooms.get(match_id)
 
 
+def get_queue_counts() -> Dict[str, int]:
+    """
+    Get the current player count in each genre's waiting queue.
+    Returns a dict with genre names as keys and player counts as values.
+    Counts only waiting rooms (not in-progress or completed matches).
+    """
+    genres = ["Rock", "Hip-Hop", "Pop", "R&B", "Freestyle"]
+    team_sizes = [3, 4]
+    
+    counts = {genre: 0 for genre in genres}
+    
+    for (team_size, genre), rooms in _waiting_rooms.items():
+        for room in rooms:
+            if room.status == "waiting":
+                counts[genre] += room.human_count
+    
+    return counts
+
+
 async def start_match(room: MatchRoom, db=None):
     """Require at least 1 player per team, build turns, broadcast game start."""
     team_a = [p for p in room.players if p["teamId"] == "A"]

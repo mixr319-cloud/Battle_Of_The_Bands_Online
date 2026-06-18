@@ -54,14 +54,21 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
     # so without this a transient disconnect would leave them permanently
     # marked disconnected for the rest of the match.
     for room_candidate in _active_rooms.values():
-        if room_candidate.status != "waiting" and room_candidate.already_has_player(user_id):
+        if room_candidate.status in ("in_progress", "voting") and room_candidate.already_has_player(user_id):
             current_match_id = room_candidate.match_id
             room_candidate.connections[user_id] = websocket
             room_candidate.disconnected.discard(user_id)
-            await websocket.send_json({
-                "type": "game_start",
-                **room_candidate.state_snapshot(),
-            })
+            
+            if room_candidate.status == "voting":
+                await websocket.send_json({
+                    "type": "voting_start",
+                    **room_candidate.state_snapshot(include_audio=False),
+                })
+            else:
+                await websocket.send_json({
+                    "type": "game_start",
+                    **room_candidate.state_snapshot(),
+                })
             break
 
     try:
@@ -91,7 +98,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
                 # waiting queue, otherwise multiple tabs from the same user fill slots.
                 existing_room = None
                 for room_candidate in _active_rooms.values():
-                    if (room_candidate.status != "waiting"
+                    if (room_candidate.status in ("in_progress", "voting")
                             and room_candidate.already_has_player(user_id)):
                         existing_room = room_candidate
                         break
@@ -101,10 +108,17 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
                     current_match_id = room.match_id
                     room.connections[user_id] = websocket
                     room.disconnected.discard(user_id)
-                    await websocket.send_json({
-                        "type": "game_start",
-                        **room.state_snapshot(),
-                    })
+                    
+                    if room.status == "voting":
+                        await websocket.send_json({
+                            "type": "voting_start",
+                            **room.state_snapshot(include_audio=False),
+                        })
+                    else:
+                        await websocket.send_json({
+                            "type": "game_start",
+                            **room.state_snapshot(),
+                        })
                     continue
 
                 room = get_or_create_room(team_size, genre)

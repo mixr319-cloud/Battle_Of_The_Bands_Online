@@ -484,6 +484,8 @@ async def handle_disconnect_during_turn(room: MatchRoom, user_id: str):
 
 async def receive_song_vote(room: MatchRoom, voter_id: str, rating_a: int, rating_b: int):
     """Record one player's song ratings. Proceed to MVP phase message when all in."""
+    if any(v.get("voter_id") == voter_id for v in room.song_votes):
+        return
     room.song_votes.append({"voter_id": voter_id, "ratingA": rating_a, "ratingB": rating_b})
     # No broadcast needed — client already knows to move to MVP phase after submitting
 

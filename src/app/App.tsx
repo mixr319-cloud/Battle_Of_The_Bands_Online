@@ -259,6 +259,7 @@ export default function App() {
         recordingsRef.current = recs;
         setRecordings(recs);
         setTeams(msg.teams as { A: Team; B: Team });
+        setMatchId(msg.matchId as string);
         setTimeout(() => setScreen("voting"), 400);
       }
 

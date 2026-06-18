@@ -68,8 +68,7 @@ export default function App() {
   const [teams, setTeams] = useState<{ A: Team; B: Team } | null>(null);
   const [battleKey, setBattleKey] = useState<BattleKey | null>(null);
   const [bpm, setBpm] = useState<number>(90);
-  const [currentTurn, setCurrentTurn] = useState<{ teamId: "A" | "B"; playerIdx: number } | null>(null);
-  const [turnIdx, setTurnIdx] = useState(0);
+  const [currentTurns, setCurrentTurns] = useState<{ A: number | null; B: number | null }>({ A: null, B: null });
   const [totalTurns, setTotalTurns] = useState(0);
   const [showRecording, setShowRecording] = useState(false);
   const [pendingLoop, setPendingLoop] = useState<{ recording: Recording; teamId: "A" | "B" } | null>(null);
@@ -101,12 +100,9 @@ export default function App() {
         setTeams({ A: teamA as Team, B: teamB as Team });
         setBattleKey(msg.battleKey as BattleKey);
         setBpm(msg.bpm as number);
-        // Only update currentTurn on a real value — if the server sends null it means
-        // the last turn just finished and voting_start is about to arrive. Clearing it
-        // here would unmount the GameScreen mid-render.
-        const newTurn = msg.currentTurn as { teamId: "A" | "B"; playerIdx: number } | null;
-        if (newTurn !== null) { setCurrentTurn(newTurn); }
-        setTurnIdx(msg.turnIdx as number);
+        
+        const newTurns = msg.currentTurns as { A: number | null; B: number | null } | undefined;
+        if (newTurns !== undefined) { setCurrentTurns(newTurns); }
         setTotalTurns(msg.totalTurns as number);
 
         if (msg.recordings) {
@@ -121,11 +117,11 @@ export default function App() {
         }
 
         // Check if it's MY turn
-        const turn = msg.currentTurn as { teamId: "A" | "B"; playerIdx: number } | null;
-        if (turn && profile) {
+        if (newTurns && profile) {
           const myPlayer = teamA.players.find(p => p.id === profile.id)
             || teamB.players.find(p => p.id === profile.id);
-          const isMe = myPlayer && myPlayer.teamId === turn.teamId && myPlayer.playerIdx === turn.playerIdx;
+          const myTeamId = myPlayer?.teamId as "A" | "B" | undefined;
+          const isMe = myPlayer && myTeamId && newTurns[myTeamId] === myPlayer.playerIdx;
           isMyTurnRef.current = !!isMe;
           if (isMe) {
             setTimeout(() => setShowRecording(true), type === "game_start" ? 800 : 600);
@@ -176,10 +172,11 @@ export default function App() {
 
   async function onRecordDone(audioBlob?: Blob, waveform?: number[]) {
     setShowRecording(false);
-    if (!teams || !currentTurn || !matchId || !profile) return;
+    const myPlayer = profile ? (teams?.A.players.find(p => p.id === profile.id) || teams?.B.players.find(p => p.id === profile.id)) : null;
+    if (!teams || !myPlayer || !matchId || !profile) return;
 
-    const { teamId, playerIdx } = currentTurn;
-    const myPlayer = teams[teamId].players[playerIdx];
+    const teamId = myPlayer.teamId as "A" | "B";
+    if (currentTurns[teamId] !== myPlayer.playerIdx) return;
 
     if (audioBlob && waveform) {
       // Upload audio to server first
@@ -215,9 +212,10 @@ export default function App() {
   }
 
   function onLoopVoteResult(kept: boolean) {
-    if (!matchId || !currentTurn || !teams || !profile) return;
-    const { teamId, playerIdx } = currentTurn;
-    const myPlayer = teams[teamId].players[playerIdx];
+    const myPlayer = profile ? (teams?.A.players.find(p => p.id === profile.id) || teams?.B.players.find(p => p.id === profile.id)) : null;
+    if (!matchId || !myPlayer || !teams || !profile) return;
+    
+    const teamId = myPlayer.teamId as "A" | "B";
 
     if (kept && pendingLoop) {
       recordingsRef.current = [...recordingsRef.current, pendingLoop.recording];
@@ -262,7 +260,7 @@ export default function App() {
 
   function onPlayAgain() {
     setTeams(null);
-    setCurrentTurn(null);
+    setCurrentTurns({ A: null, B: null });
     setVoteResult(null);
     setVotes({ A: 0, B: 0 });
     setMvpResult(null);
@@ -274,9 +272,10 @@ export default function App() {
     setScreen("lobby");
   }
 
-  const currentTeamStack = currentTurn
-    ? recordingsRef.current.filter(r => r.teamId === currentTurn.teamId)
-    : [];
+  const myPlayer = profile ? (teams?.A.players.find(p => p.id === profile.id) || teams?.B.players.find(p => p.id === profile.id)) : null;
+  const myTeamId = myPlayer?.teamId as "A" | "B" | undefined;
+  const myActiveIdx = myTeamId ? currentTurns[myTeamId] : null;
+  const currentTeamStack = myTeamId ? recordingsRef.current.filter(r => r.teamId === myTeamId) : [];
 
   // Show auth modal if no profile
   if (!profile) {
@@ -327,11 +326,11 @@ export default function App() {
               />
             </motion.div>
           )}
-          {screen === "game" && teams && currentTurn && battleKey && (
+          {screen === "game" && teams && battleKey && (
             <motion.div key="game" {...fadeSlide} className="size-full">
               <GameScreen
                 teams={teams}
-                currentTurn={currentTurn}
+                currentTurns={currentTurns}
                 teamSize={teamSize}
                 battleKey={battleKey}
                 bpm={bpm}
@@ -375,11 +374,11 @@ export default function App() {
       </motion.button>
 
       <AnimatePresence>
-        {showRecording && currentTurn && teams && battleKey && (
+        {showRecording && myTeamId && myActiveIdx !== null && teams && battleKey && (
           <RecordingModal
-            player={teams[currentTurn.teamId].players[currentTurn.playerIdx]}
-            turnNumber={turnIdx + 1}
-            totalTurns={totalTurns}
+            player={teams[myTeamId].players[myActiveIdx]}
+            turnNumber={myActiveIdx + 1}
+            totalTurns={teamSize}
             battleKey={battleKey}
             bpm={bpm}
             onBpmChange={(newBpm) => {

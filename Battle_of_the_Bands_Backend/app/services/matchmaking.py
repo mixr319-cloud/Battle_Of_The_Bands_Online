@@ -39,8 +39,8 @@ class MatchRoom:
         self.bpm = 90
         self.connections: Dict[str, WebSocket] = {}   # user_id -> websocket
         self.players: List[dict] = []                  # ordered: A0,B0,A1,B1,...
-        self.turns: List[dict] = []                    # [{teamId, playerIdx, userId}]
-        self.turn_idx = 0
+        self.turns: Dict[str, List[dict]] = {"A": [], "B": []}
+        self.turn_idx: Dict[str, int] = {"A": 0, "B": 0}
         self.recordings: List[dict] = []
         self.disconnected: set = set()                 # user_ids that have disconnected
         self.timeout_version: int = 0                  # incremented on each join to cancel stale timeouts
@@ -87,15 +87,15 @@ class MatchRoom:
         team_a = [p for p in self.players if p["teamId"] == "A"]
         team_b = [p for p in self.players if p["teamId"] == "B"]
 
-        turns = []
+        self.turns["A"] = []
         for slot in range(self.team_size):
-            # Round-robin: slot % len(team) picks which real player covers this slot
-            player_a = team_a[slot % len(team_a)]
-            player_b = team_b[slot % len(team_b)]
-            turns.append({"teamId": "A", "playerIdx": slot, "userId": player_a["id"]})
-            turns.append({"teamId": "B", "playerIdx": slot, "userId": player_b["id"]})
+            if team_a:
+                self.turns["A"].append({"teamId": "A", "playerIdx": slot, "userId": team_a[slot % len(team_a)]["id"]})
 
-        self.turns = turns
+        self.turns["B"] = []
+        for slot in range(self.team_size):
+            if team_b:
+                self.turns["B"].append({"teamId": "B", "playerIdx": slot, "userId": team_b[slot % len(team_b)]["id"]})
 
     def get_teams(self):
         """
@@ -122,14 +122,15 @@ class MatchRoom:
             "B": {"id": "B", "name": "Team B", "players": build_slot_players(team_b_real, "B")},
         }
 
-    def get_current_turn(self):
-        if self.turn_idx < len(self.turns):
-            return self.turns[self.turn_idx]
+    def get_current_turn(self, team_id: str):
+        idx = self.turn_idx[team_id]
+        if idx < len(self.turns[team_id]):
+            return self.turns[team_id][idx]
         return None
 
-    def get_current_player(self):
+    def get_current_player(self, team_id: str):
         """Get the real player object responsible for the current turn."""
-        turn = self.get_current_turn()
+        turn = self.get_current_turn(team_id)
         if not turn:
             return None
         user_id = turn.get("userId")
@@ -138,8 +139,8 @@ class MatchRoom:
                 return p
         return None
 
-    def is_current_player_disconnected(self):
-        player = self.get_current_player()
+    def is_current_player_disconnected(self, team_id: str):
+        player = self.get_current_player(team_id)
         return player is not None and player["id"] in self.disconnected
 
     def state_snapshot(self):
@@ -149,9 +150,12 @@ class MatchRoom:
             "teams": self.get_teams(),
             "battleKey": self.battle_key,
             "bpm": self.bpm,
-            "currentTurn": self.get_current_turn(),
-            "turnIdx": self.turn_idx,
-            "totalTurns": len(self.turns),
+            "currentTurns": {
+                "A": self.turn_idx["A"] if self.turn_idx["A"] < self.team_size else None,
+                "B": self.turn_idx["B"] if self.turn_idx["B"] < self.team_size else None,
+            },
+            "turnIdx": max(self.turn_idx["A"], self.turn_idx["B"]),
+            "totalTurns": self.team_size,
             "recordings": self.recordings,
         }
 
@@ -261,10 +265,10 @@ async def start_match(room: MatchRoom, db=None):
             db.add(mp)
         await db.commit()
 
-    # Mark the first player as recording
-    first_player = room.get_current_player()
-    if first_player:
-        first_player["isRecording"] = True
+    # Mark the first players as recording
+    for team_id in ["A", "B"]:
+        p = room.get_current_player(team_id)
+        if p: p["isRecording"] = True
 
     await room.broadcast_all({
         "type": "game_start",
@@ -272,41 +276,44 @@ async def start_match(room: MatchRoom, db=None):
     })
 
 
-async def advance_turn(room: MatchRoom, recording: Optional[dict] = None, db=None):
+async def advance_turn(room: MatchRoom, team_id: str, recording: Optional[dict] = None, db=None):
     """Move to next turn, skipping disconnected players, or end game if all turns done."""
     if recording:
         room.recordings.append(recording)
 
-    room.turn_idx += 1
+    room.turn_idx[team_id] += 1
 
     # Skip over any disconnected players' turns
     while True:
-        current = room.get_current_turn()
+        current = room.get_current_turn(team_id)
 
         if current is None:
-            # All turns done — move to voting
-            room.status = "voting"
-            await room.broadcast_all({
-                "type": "voting_start",
-                **room.state_snapshot(),
-            })
-            return
+            break
 
         # If the current player is disconnected, auto-skip their turn
-        if room.is_current_player_disconnected():
+        if room.is_current_player_disconnected(team_id):
             await room.broadcast_all({
                 "type": "turn_advance",
                 "skippedUserId": current.get("userId"),
                 "reason": "disconnected",
                 **room.state_snapshot(),
             })
-            room.turn_idx += 1
+            room.turn_idx[team_id] += 1
             continue
 
         # Valid turn — mark player as recording and notify everyone
-        player = room.get_current_player()
+        player = room.get_current_player(team_id)
         if player:
             player["isRecording"] = True
+        break
+
+    if room.turn_idx["A"] >= room.team_size and room.turn_idx["B"] >= room.team_size:
+        room.status = "voting"
+        await room.broadcast_all({
+            "type": "voting_start",
+            **room.state_snapshot(),
+        })
+        return
 
         await room.broadcast_all({
             "type": "turn_advance",
@@ -317,10 +324,11 @@ async def advance_turn(room: MatchRoom, recording: Optional[dict] = None, db=Non
 
 async def handle_disconnect_during_turn(room: MatchRoom, user_id: str):
     """Called when a player disconnects and it is currently their turn."""
-    current_turn = room.get_current_turn()
-    if current_turn and current_turn.get("userId") == user_id:
-        # Auto-advance immediately so other players aren't stuck
-        await advance_turn(room, recording=None)
+    for team_id in ["A", "B"]:
+        current_turn = room.get_current_turn(team_id)
+        if current_turn and current_turn.get("userId") == user_id:
+            # Auto-advance immediately so other players aren't stuck
+            await advance_turn(room, team_id, recording=None)
 
 
 async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes_b: int,

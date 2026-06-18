@@ -3,13 +3,13 @@ import type { Team, BattleKey } from "../App";
 
 interface Props {
   teams: { A: Team; B: Team };
-  currentTurn: { teamId: "A" | "B"; playerIdx: number };
+  currentTurns: { A: number | null; B: number | null };
   teamSize: number;
   battleKey: BattleKey;
   bpm: number;
 }
 
-export function GameScreen({ teams, currentTurn, teamSize, battleKey, bpm }: Props) {
+export function GameScreen({ teams, currentTurns, teamSize, battleKey, bpm }: Props) {
   const totalRecorded = [...teams.A.players, ...teams.B.players].filter(p => p.hasRecorded).length;
   const total = teamSize * 2;
   const progress = totalRecorded / total;
@@ -52,37 +52,38 @@ export function GameScreen({ teams, currentTurn, teamSize, battleKey, bpm }: Pro
 
       {/* Teams */}
       <div className="flex-1 flex gap-4 overflow-hidden">
-        <TeamColumn team={teams.A} currentTurn={currentTurn} />
+        <TeamColumn team={teams.A} currentIdx={currentTurns.A} />
         <div className="flex flex-col items-center justify-center gap-2 shrink-0">
           <div className="w-px flex-1 bg-white/10" />
           <span className="text-white/30 text-xs font-bold">VS</span>
           <div className="w-px flex-1 bg-white/10" />
         </div>
-        <TeamColumn team={teams.B} currentTurn={currentTurn} />
+        <TeamColumn team={teams.B} currentIdx={currentTurns.B} />
       </div>
 
       {/* Turn indicator */}
-      <div className="mt-5 text-center">
-        {currentTurn.teamId === "A" && currentTurn.playerIdx === 0 ? (
-          <motion.p
-            animate={{ opacity: [0.6, 1, 0.6] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-purple-400 text-sm font-medium"
-          >
-            🎙 Your turn is coming up...
-          </motion.p>
-        ) : (
-          <p className="text-white/40 text-sm">
-            {teams[currentTurn.teamId].players[currentTurn.playerIdx]?.name} is recording...
-          </p>
-        )}
-      </div>
+      {(() => {
+        const recordingA = currentTurns.A !== null ? teams.A.players[currentTurns.A]?.name : null;
+        const recordingB = currentTurns.B !== null ? teams.B.players[currentTurns.B]?.name : null;
+        const activeNames = [recordingA, recordingB].filter(Boolean);
+        return (
+          <div className="mt-5 text-center">
+            {activeNames.length > 0 ? (
+              <p className="text-white/40 text-sm">
+                {activeNames.join(" & ")} {activeNames.length > 1 ? "are" : "is"} recording...
+              </p>
+            ) : (
+              <p className="text-white/40 text-sm">Waiting for votes...</p>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function TeamColumn({ team, currentTurn }: { team: Team; currentTurn: { teamId: "A" | "B"; playerIdx: number } }) {
-  const isActive = team.id === currentTurn.teamId;
+function TeamColumn({ team, currentIdx }: { team: Team; currentIdx: number | null }) {
+  const isActive = currentIdx !== null;
 
   return (
     <div className="flex-1 flex flex-col gap-3">
@@ -101,7 +102,7 @@ function TeamColumn({ team, currentTurn }: { team: Team; currentTurn: { teamId: 
 
       <div className="flex flex-col gap-2 flex-1">
         {team.players.map((player, idx) => {
-          const isCurrentPlayer = team.id === currentTurn.teamId && idx === currentTurn.playerIdx;
+          const isCurrentPlayer = currentIdx === idx;
           return (
             <motion.div
               key={player.id}

@@ -123,7 +123,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
                         p["hasRecorded"] = True
                         p["isRecording"] = False
 
-                await advance_turn(room, recording=recording)
+            await advance_turn(room, team_id, recording=recording)
 
             # ── VOTE COMPLETE ────────────────────────────────────────
             elif msg_type == "vote_complete":

@@ -119,7 +119,7 @@ export async function submitVoteResults(
 }
 
 export async function fetchUserProfile(userId: string) {
-  const res = await fetch(`${API_URL}/users/${userId}`);
+  const res = await fetch(`${API_URL}/users/${userId}?_t=${Date.now()}`);
   if (!res.ok) throw new Error("Failed to fetch profile");
   return res.json();
 }

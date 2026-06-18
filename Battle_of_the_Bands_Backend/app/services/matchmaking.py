@@ -491,7 +491,7 @@ async def receive_song_vote(room: MatchRoom, voter_id: str, rating_a: int, ratin
 
 
 async def check_and_finish_voting(room: MatchRoom, db=None):
-    connected_players = [p for p in room.players if p["id"] not in room.disconnected]
+    connected_players = [p for p in room.players if p["id"] not in room.disconnected and not p.get("isNpc")]
     if len(room.mvp_votes) < len(connected_players) or len(connected_players) == 0:
         return  # Still waiting for more votes
 
@@ -573,15 +573,15 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
                 is_mvp = (p["id"] in (mvp_a_id, mvp_b_id))
                 earned_xp = (180 if is_winner else 60) + (120 if is_mvp else 0)
 
-                new_xp, new_level, new_xp_to_next = apply_xp(user.xp, user.level, earned_xp)
+                new_xp, new_level, new_xp_to_next = apply_xp(user.xp or 0, user.level or 1, earned_xp)
                 user.xp = new_xp
                 user.level = new_level
                 user.xp_to_next = new_xp_to_next
-                user.battles += 1
+                user.battles = (user.battles or 0) + 1
                 if is_winner:
-                    user.wins += 1
+                    user.wins = (user.wins or 0) + 1
                 if is_mvp:
-                    user.mvps += 1
+                    user.mvps = (user.mvps or 0) + 1
 
                 # Update in-memory player so the results broadcast has the new stats
                 p["xp"] = new_xp

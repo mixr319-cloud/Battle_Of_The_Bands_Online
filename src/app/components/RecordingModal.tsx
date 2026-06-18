@@ -93,6 +93,7 @@ export function RecordingModal({
 
   function playClick(isDownbeat: boolean) {
     const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -248,6 +249,7 @@ export function RecordingModal({
   // Play the team stack simultaneously (for preview or backing track during recording)
   function startStackPlayback(loop: boolean): number {
     const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
     stopPreviewPlayback();
     const startTime = ctx.currentTime + 0.05;
     const nodes = stackBuffersRef.current.map(buf => {
@@ -268,8 +270,9 @@ export function RecordingModal({
       setIsPlayingPreview(false);
     } else {
       if (stackBuffersRef.current.length === 0) return;
+      const ctx = getCtx();
+      if (ctx.state === "suspended") ctx.resume();
       const nodes = stackBuffersRef.current.map(buf => {
-        const ctx = getCtx();
         const src = ctx.createBufferSource();
         src.buffer = buf;
         src.loop = false;

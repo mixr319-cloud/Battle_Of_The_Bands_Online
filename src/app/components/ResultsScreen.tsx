@@ -67,6 +67,9 @@ export function ResultsScreen({ teams, winner, votes, mvp, recordings, onPlayAga
     if (winBuffersRef.current.length === 0) return;
     stopAll();
     const ctx = getCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
     const nodes = winBuffersRef.current.map(buf => {
       const src = ctx.createBufferSource();
       src.buffer = buf;

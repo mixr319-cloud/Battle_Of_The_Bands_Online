@@ -42,6 +42,7 @@ export function VotingScreen({ teams, recordings, onComplete }: Props) {
   const playingNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const buffersRef = useRef<{ A: AudioBuffer[]; B: AudioBuffer[] }>({ A: [], B: [] });
   const decodedRef = useRef(false);
+  const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function getCtx() {
     if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
@@ -86,6 +87,10 @@ export function VotingScreen({ teams, recordings, onComplete }: Props) {
     playingNodesRef.current.forEach(n => { try { n.stop(); } catch {} });
     playingNodesRef.current = [];
     setPlayingTeam(null);
+    if (playTimeoutRef.current) {
+      clearTimeout(playTimeoutRef.current);
+      playTimeoutRef.current = null;
+    }
   }
 
   function playTeam(teamId: "A" | "B") {
@@ -98,6 +103,9 @@ export function VotingScreen({ teams, recordings, onComplete }: Props) {
       return;
     }
     const ctx = getCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
     const maxDuration = Math.max(...buffers.map(b => b.duration));
     const nodes = buffers.map(buf => {
       const src = ctx.createBufferSource();
@@ -109,7 +117,7 @@ export function VotingScreen({ teams, recordings, onComplete }: Props) {
     });
     playingNodesRef.current = nodes;
     setPlayingTeam(teamId);
-    setTimeout(() => {
+    playTimeoutRef.current = setTimeout(() => {
       stopAll();
       if (teamId === "A") setListenedA(true);
       else setListenedB(true);

@@ -90,6 +90,7 @@ export function LoopVoteModal({ loop, teamPlayers, teamStack, onResult }: Props)
     }
 
     const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
     const startTime = ctx.currentTime + 0.05;
     const allNodes: AudioBufferSourceNode[] = [];
 

@@ -582,6 +582,7 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
                     user.wins = (user.wins or 0) + 1
                 if is_mvp:
                     user.mvps = (user.mvps or 0) + 1
+                db.add(user)
 
                 # Update in-memory player so the results broadcast has the new stats
                 p["xp"] = new_xp

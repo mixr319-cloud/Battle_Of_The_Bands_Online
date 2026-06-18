@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { registerGuest, fetchUserProfile } from "./useGameSocket";
 
 export type AuthType = "guest" | "discord" | "google";
@@ -53,18 +53,19 @@ function saveProfile(p: Profile) {
 }
 
 function serverToProfile(data: Record<string, unknown>): Profile {
+  // Backend may return snake_case or camelCase depending on the endpoint route. Map both safely.
   return {
-    id: data.id as string,
-    username: data.username as string,
-    displayName: data.displayName as string,
-    authType: data.authType as AuthType,
-    level: data.level as number,
-    xp: data.xp as number,
-    xpToNext: data.xpToNext as number,
-    wins: data.wins as number,
-    battles: data.battles as number,
-    mvps: data.mvps as number,
-    avatarColor: data.avatarColor as string,
+    id: (data.id || "") as string,
+    username: (data.username || "") as string,
+    displayName: (data.displayName || data.display_name || data.username || "Player") as string,
+    authType: (data.authType || data.auth_type || "guest") as AuthType,
+    level: (data.level || 1) as number,
+    xp: (data.xp || 0) as number,
+    xpToNext: (data.xpToNext || data.xp_to_next || 650) as number,
+    wins: (data.wins || 0) as number,
+    battles: (data.battles || 0) as number,
+    mvps: (data.mvps || 0) as number,
+    avatarColor: (data.avatarColor || data.avatar_color || "#a855f7") as string,
   };
 }
 
@@ -125,6 +126,11 @@ export function useProfile() {
       setProfileState(p);
     } catch {}
   }, []);
+
+  // Sync profile with server on initial app load so we don't rely on stale localStorage
+  useEffect(() => {
+    refreshProfile();
+  }, [refreshProfile]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);

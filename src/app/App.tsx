@@ -98,6 +98,7 @@ export default function App() {
   const isMyTurnRef = useRef(false);
   // Store the recording blob-only version for teammates who don't have a local blob
   const pendingRecordingRef = useRef<Recording | null>(null);
+  const loopVoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check for OAuth redirect params on load
   useEffect(() => {
@@ -168,6 +169,10 @@ export default function App() {
 
       // ── LOOP VOTE REQUEST (server → teammates) ─────────────────
       if (type === "loop_vote_request" && profile) {
+        if (loopVoteTimeoutRef.current) {
+          clearTimeout(loopVoteTimeoutRef.current);
+          loopVoteTimeoutRef.current = null;
+        }
         const rawRec = msg.recording as (Recording & { id?: string; url?: string; audiob64?: string }) | null;
         if (!rawRec) return;
         // Build a Recording with no local blob (teammate fetches from URL or uses base64)
@@ -236,8 +241,12 @@ export default function App() {
           }
         }
 
+        if (loopVoteTimeoutRef.current) {
+          clearTimeout(loopVoteTimeoutRef.current);
+        }
+
         // Clear everything after 2.5s
-        setTimeout(() => {
+        loopVoteTimeoutRef.current = setTimeout(() => {
           setLoopVoteData(null);
           setLoopVoteResult(null);
           setPendingUpload(null);
@@ -315,6 +324,11 @@ export default function App() {
         teamId,
       };
 
+      if (loopVoteTimeoutRef.current) {
+        clearTimeout(loopVoteTimeoutRef.current);
+        loopVoteTimeoutRef.current = null;
+      }
+
       // Show the recorder the "waiting for teammates" state
       pendingRecordingRef.current = newRec;
       setLoopVoteData({
@@ -388,6 +402,10 @@ export default function App() {
   }
 
   function onPlayAgain() {
+    if (loopVoteTimeoutRef.current) {
+      clearTimeout(loopVoteTimeoutRef.current);
+      loopVoteTimeoutRef.current = null;
+    }
     setTeams(null);
     setCurrentTurn(null);
     setVoteResult(null);

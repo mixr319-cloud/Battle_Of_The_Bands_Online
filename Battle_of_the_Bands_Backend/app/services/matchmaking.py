@@ -488,17 +488,14 @@ async def receive_song_vote(room: MatchRoom, voter_id: str, rating_a: int, ratin
     # No broadcast needed — client already knows to move to MVP phase after submitting
 
 
-async def receive_mvp_vote(room: MatchRoom, voter_id: str, pick_a: str, pick_b: str, db=None):
-    """Record one player's MVP picks. Tally and broadcast results when all in."""
-    room.mvp_votes.append({"voter_id": voter_id, "pickA": pick_a, "pickB": pick_b})
-
+async def check_and_finish_voting(room: MatchRoom, db=None):
     connected_players = [p for p in room.players if p["id"] not in room.disconnected]
-    if len(room.mvp_votes) < len(connected_players):
+    if len(room.mvp_votes) < len(connected_players) or len(connected_players) == 0:
         return  # Still waiting for more votes
 
     # Tally song votes
-    total_a = sum(v["ratingA"] for v in room.song_votes)
-    total_b = sum(v["ratingB"] for v in room.song_votes)
+    total_a = sum(v.get("ratingA", 0) for v in room.song_votes)
+    total_b = sum(v.get("ratingB", 0) for v in room.song_votes)
     winner = "A" if total_a >= total_b else "B"
 
     # Tally MVP votes
@@ -530,6 +527,13 @@ async def receive_mvp_vote(room: MatchRoom, voter_id: str, pick_a: str, pick_b: 
         mvp_b_id=mvp_b,
         db=db,
     )
+
+async def receive_mvp_vote(room: MatchRoom, voter_id: str, pick_a: str, pick_b: str, db=None):
+    """Record one player's MVP picks. Tally and broadcast results when all in."""
+    if any(v["voter_id"] == voter_id for v in room.mvp_votes):
+        return
+    room.mvp_votes.append({"voter_id": voter_id, "pickA": pick_a, "pickB": pick_b})
+    await check_and_finish_voting(room, db=db)
 
 
 async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes_b: int,
@@ -568,6 +572,20 @@ class ConnectionManager:
             })
             if room.status == "in_progress":
                 await handle_disconnect_during_turn(room, user_id)
+
+                # Check if this disconnect unblocks a pending loop vote
+                if not room.loop_vote_resolved and room.loop_vote_recorder_id:
+                    current_turn = room.get_current_turn()
+                    if current_turn and current_turn.get("userId") == room.loop_vote_recorder_id:
+                        if room.all_loop_votes_in():
+                            room.loop_vote_resolved = True
+                            kept = room.tally_loop_vote()
+                            await finish_loop_vote(room, kept=kept, recording=room.pending_loop_recording if kept else None)
+            elif room.status == "voting":
+                # Check if this disconnect unblocks the final end-of-game vote tally
+                from app.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    await check_and_finish_voting(room, db=db)
 
 
 manager = ConnectionManager()

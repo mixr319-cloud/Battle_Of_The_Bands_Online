@@ -288,7 +288,7 @@ export default function App() {
         setRecordings(merged);
         setTeams(msg.teams as { A: Team; B: Team });
         setScreen("results");
-        refreshProfile();
+        setTimeout(() => refreshProfile(), 1000);
       }
 
       if (type === "bpm_changed") {

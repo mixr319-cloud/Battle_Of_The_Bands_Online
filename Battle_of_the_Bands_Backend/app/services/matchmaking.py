@@ -540,6 +540,41 @@ async def receive_mvp_vote(room: MatchRoom, voter_id: str, pick_a: str, pick_b: 
 
 async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes_b: int,
                                 mvp_a_id: str, mvp_b_id: str, db=None):
+    if db:
+        try:
+            from app.models import Match, User
+            db_match = await db.get(Match, room.match_id)
+            if db_match:
+                db_match.status = "done"
+                if hasattr(db_match, "winner"):
+                    db_match.winner = winner
+
+            for p in room.players:
+                if p.get("isNpc"): continue
+                user = await db.get(User, p["id"])
+                if user:
+                    is_winner = (p["teamId"] == winner)
+                    is_mvp = (p["id"] in (mvp_a_id, mvp_b_id))
+                    
+                    earned_xp = (180 if is_winner else 60) + (120 if is_mvp else 0)
+                    if hasattr(user, "xp"): user.xp += earned_xp
+                    if hasattr(user, "battles"): user.battles += 1
+                    if is_winner and hasattr(user, "wins"): user.wins += 1
+                    if is_mvp and hasattr(user, "mvps"): user.mvps += 1
+                    
+                    try:
+                        from app.services.xp_system import check_level_up
+                        check_level_up(user)
+                    except ImportError:
+                        while getattr(user, "xp", 0) >= getattr(user, "xp_to_next", 999999):
+                            user.xp -= user.xp_to_next
+                            user.level += 1
+                            user.xp_to_next = int(user.xp_to_next * 1.5)
+                            
+            await db.commit()
+        except Exception as e:
+            print("Failed to save XP:", e)
+
     room.status = "done"
     await room.broadcast_all({
         "type": "results",

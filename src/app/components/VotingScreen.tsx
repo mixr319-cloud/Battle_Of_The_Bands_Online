@@ -93,6 +93,7 @@ export function VotingScreen({ teams, recordings, myPlayerId, send, matchId, onM
       return;
     }
     const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
     const maxDuration = Math.max(...buffers.map(b => b.duration));
     const nodes = buffers.map(buf => {
       const src = ctx.createBufferSource();

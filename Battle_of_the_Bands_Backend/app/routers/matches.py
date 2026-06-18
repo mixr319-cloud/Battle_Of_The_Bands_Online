@@ -62,7 +62,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
             if room_candidate.status == "voting":
                 await websocket.send_json({
                     "type": "voting_start",
-                    **room_candidate.state_snapshot(include_audio=False),
+                    **room_candidate.state_snapshot(include_audio=True),
                 })
             else:
                 await websocket.send_json({
@@ -112,7 +112,7 @@ async def matchmaking_ws(websocket: WebSocket, user_id: str):
                     if room.status == "voting":
                         await websocket.send_json({
                             "type": "voting_start",
-                            **room.state_snapshot(include_audio=False),
+                            **room.state_snapshot(include_audio=True),
                         })
                     else:
                         await websocket.send_json({

@@ -80,6 +80,7 @@ export function LoopVoteModal({
   function togglePlay() {
     if (isPlaying) { stopAll(); return; }
     const ctx = getCtx();
+    if (ctx.state === "suspended") ctx.resume();
     const startTime = ctx.currentTime + 0.05;
     const allNodes: AudioBufferSourceNode[] = [];
 

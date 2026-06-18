@@ -255,9 +255,17 @@ export default function App() {
       }
 
       if (type === "voting_start") {
-        const recs = msg.recordings as Recording[];
-        recordingsRef.current = recs;
-        setRecordings(recs);
+        const serverRecs = msg.recordings as Recording[];
+        const merged = serverRecs.map(serverRec => {
+          const existing = recordingsRef.current.find(r => r.id === serverRec.id);
+          return {
+            ...serverRec,
+            blob: existing?.blob ?? serverRec.blob,
+            audiob64: existing?.audiob64 ?? serverRec.audiob64,
+          };
+        });
+        recordingsRef.current = merged;
+        setRecordings(merged);
         setTeams(msg.teams as { A: Team; B: Team });
         setMatchId(msg.matchId as string);
         setTimeout(() => setScreen("voting"), 400);
@@ -267,9 +275,17 @@ export default function App() {
         setVoteResult(msg.winner as "A" | "B");
         setVotes(msg.votes as { A: number; B: number });
         setMvpResult(msg.mvp as { A: string; B: string });
-        const recs = msg.recordings as Recording[];
-        recordingsRef.current = recs;
-        setRecordings(recs);
+        const serverRecs = msg.recordings as Recording[];
+        const merged = serverRecs.map(serverRec => {
+          const existing = recordingsRef.current.find(r => r.id === serverRec.id);
+          return {
+            ...serverRec,
+            blob: existing?.blob ?? serverRec.blob,
+            audiob64: existing?.audiob64 ?? serverRec.audiob64,
+          };
+        });
+        recordingsRef.current = merged;
+        setRecordings(merged);
         setTeams(msg.teams as { A: Team; B: Team });
         setScreen("results");
         refreshProfile();

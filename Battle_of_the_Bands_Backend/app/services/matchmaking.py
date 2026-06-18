@@ -451,7 +451,7 @@ async def advance_turn(room: MatchRoom, recording: Optional[dict] = None, db=Non
             room.status = "voting"
             await room.broadcast_all({
                 "type": "voting_start",
-                **room.state_snapshot(include_audio=False),
+                **room.state_snapshot(include_audio=True),
             })
             return
 
@@ -547,7 +547,7 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
         "winner": winner,
         "votes": {"A": votes_a, "B": votes_b},
         "mvp": {"A": mvp_a_id, "B": mvp_b_id},
-        "recordings": room.recordings,
+        "recordings": room.state_snapshot(include_audio=True)["recordings"],
         "teams": room.get_teams(),
     })
 

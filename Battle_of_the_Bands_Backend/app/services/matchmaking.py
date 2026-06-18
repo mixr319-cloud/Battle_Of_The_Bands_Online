@@ -544,6 +544,7 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
     # check_and_finish_voting after the match has already been scored once.
     if room.status == "done":
         return
+    room.status = "done"
 
     if db:
         from app.models import Match, User
@@ -581,6 +582,11 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
                     user.wins += 1
                 if is_mvp:
                     user.mvps += 1
+
+                # Update in-memory player so the results broadcast has the new stats
+                p["xp"] = new_xp
+                p["level"] = new_level
+                p["xpToNext"] = new_xp_to_next
             except Exception:
                 logging.exception("Failed to apply XP for player %s in match %s", p.get("id"), room.match_id)
                 any_failure = True
@@ -594,7 +600,6 @@ async def handle_vote_complete(room: MatchRoom, winner: str, votes_a: int, votes
         if any_failure:
             logging.error("Match %s finished with one or more XP-save failures — see log above", room.match_id)
 
-    room.status = "done"
     await room.broadcast_all({
         "type": "results",
         "matchId": room.match_id,

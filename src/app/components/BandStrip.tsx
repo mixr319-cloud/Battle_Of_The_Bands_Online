@@ -88,7 +88,7 @@ export function BandStrip({ genre, bpm, isRecording, recordingSignature }: Props
 
   return (
     <div
-      className="mt-3 flex items-end justify-center gap-8 sm:gap-14 pointer-events-none select-none"
+      className="mt-3 flex items-end justify-center gap-10 sm:gap-16 pointer-events-none select-none"
       style={{ height: TARGET_HEIGHT }}
       aria-hidden="true"
     >

@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+websockets
+sqlalchemy
+aiosqlite
+python-jose[cryptography]
+passlib[bcrypt]
+httpx
+python-dotenv
+aiofiles

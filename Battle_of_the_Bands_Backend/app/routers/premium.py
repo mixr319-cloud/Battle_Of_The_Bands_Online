@@ -75,6 +75,7 @@ async def create_checkout(body: CheckoutRequest, db: AsyncSession = Depends(get_
         payment_method_types=["card"],
         line_items=[{"price": PRICE_ID, "quantity": 1}],
         mode="subscription",
+        allow_promotion_codes=True,
         success_url=f"{FRONTEND_URL}?premium=success",
         cancel_url=f"{FRONTEND_URL}?premium=cancelled",
         metadata={"botb_user_id": user.id},

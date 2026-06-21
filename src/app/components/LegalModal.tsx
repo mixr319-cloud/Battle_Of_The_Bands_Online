@@ -274,8 +274,6 @@ function ContactContent() {
       <Section heading="What to Reach Out About">
         <Bullets items={[
           "Bug reports or technical issues",
-          "Account help, or requests to delete or export your data",
-          "Reporting another player or a recording",
           "General feedback or business inquiries",
         ]} />
       </Section>

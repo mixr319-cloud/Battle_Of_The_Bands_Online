@@ -1,0 +1,14 @@
+# Local dev database — production should use a real DATABASE_URL (Postgres),
+# never this file. Committing it means every fresh deploy starts from a
+# stale snapshot instead of live data.
+botb.db
+*.db
+*.db-journal
+
+# Locally uploaded recordings — ephemeral on the free tier regardless;
+# don't bloat the repo with them either.
+audio_uploads/
+
+.env
+__pycache__/
+*.pyc

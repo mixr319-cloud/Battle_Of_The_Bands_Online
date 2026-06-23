@@ -54,7 +54,7 @@ export function GameChat({ messages, onSend, currentUserId, isPremium }: Props) 
   return (
     <div
       className="fixed bottom-4 left-4 z-50 flex flex-col"
-      style={{ width: "220px", maxHeight: "380px", pointerEvents: "none" }}
+      style={{ width: "280px", maxHeight: "380px", pointerEvents: "none" }}
     >
       {/* Message list — transparent overlay, no background, Twitch style */}
       <div
@@ -69,7 +69,7 @@ export function GameChat({ messages, onSend, currentUserId, isPremium }: Props) 
           >
             {/* Name badge */}
             <span
-              className="text-[11px] font-bold shrink-0 drop-shadow"
+              className="text-[15px] font-bold shrink-0 drop-shadow"
               style={{
                 color: msg.avatarColor,
                 textShadow: "0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7)",
@@ -79,7 +79,7 @@ export function GameChat({ messages, onSend, currentUserId, isPremium }: Props) 
             </span>
             {/* Message text */}
             <span
-              className="text-[11px] text-white break-words"
+              className="text-[15px] text-white break-words"
               style={{
                 textShadow: "0 1px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)",
                 wordBreak: "break-word",

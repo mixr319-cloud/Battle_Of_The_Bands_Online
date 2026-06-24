@@ -263,7 +263,7 @@ export function UserProfileModal({ targetUserId, viewerProfile, open, onClose, o
                           placeholder="https://… (image URL)"
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-purple-500/60 placeholder-white/20"
                         />
-                        <p className="text-white/25 text-[10px] mt-1">Paste any publicly-accessible image URL. No explicit content.</p>
+                        <p className="text-white/25 text-[10px] mt-1">Paste a publicly-accessible image URL. Right Click the image and copy the address. If the link doesn't work, try clicking open in a new tab.</p>
                       </div>
                       <div>
                         <label className="text-white/40 text-xs block mb-1">Bio (280 chars)</label>
